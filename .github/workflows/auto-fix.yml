@@ -1,0 +1,50 @@
+# .github/workflows/auto-fix.yml
+# Runs weekly and on manual dispatch. Adapt npm scripts as needed.
+name: Auto Fix (lint/format) and Open PR
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * 0' # weekly, Sunday 02:00 UTC — adjust as needed
+
+jobs:
+  autofix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run auto-fixers (lint/format)
+        # These commands should exist in package.json scripts, or replace with explicit commands.
+        run: |
+          # Run linters and formatters with autofix where possible.
+          # Exit non-zero from fixers shouldn't fail the job; we want to continue to tests.
+          npm run lint -- --fix || true
+          npm run format || true
+
+      - name: Run tests
+        run: npm test
+
+      - name: Create Pull Request with fixes
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: chore: automated fixes (lint/format)
+          branch: autofix/${{ github.run_id }}
+          title: "Automated: apply lint & format fixes"
+          body: |
+            This PR applies automatic lint and format fixes produced by the repository automation workflow.
+
+            - Autofix run: ESLint/Prettier (or configured tools)
+            - Tests: ran as part of the workflow
+          labels: automated, autofix
